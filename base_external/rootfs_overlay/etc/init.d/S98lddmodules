@@ -1,0 +1,31 @@
+#!/bin/sh
+
+case "$1" in
+start)
+    echo "Loading LDD modules"
+
+    # load modules
+    modprobe scull
+    modprobe faulty
+    modprobe hello
+
+    ;;
+stop)
+    echo "Unloading LDD modules"
+
+    # unload modules
+    rmmod hello || true
+    rmmod faulty || true
+    rmmod scull || true
+
+    ;;
+restart)
+    $0 stop
+    $0 start
+    ;;
+*)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
+
+exit 0
