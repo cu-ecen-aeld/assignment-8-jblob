@@ -7,6 +7,8 @@
 
 LDDINC=$(PWD)/../include
 EXTRA_CFLAGS += -I$(LDDINC)
+EXTRA_CFLAGS += -I$(PWD)/../include
+EXTRA_CFLAGS += -I$(PWD)/include
 
 ifeq ($(KERNELRELEASE),)
 
@@ -31,6 +33,7 @@ else
     # called from kernel build system: just declare what our modules are
     obj-m := hello.o hellop.o seq.o jiq.o sleepy.o complete.o \
              silly.o faulty.o kdatasize.o kdataalign.o jit.o
+    #obj-m := hello.o hellop.o faulty.o
 endif
 
 

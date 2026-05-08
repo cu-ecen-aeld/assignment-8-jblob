@@ -1,5 +1,5 @@
 LDD_VERSION = 1.0
-LDD_SITE = $(TOPDIR)
+LDD_SITE = $(BR2_EXTERNAL_project_base_PATH)
 LDD_SITE_METHOD = local
 
 define LDD_BUILD_CMDS
