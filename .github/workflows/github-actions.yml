@@ -16,7 +16,7 @@ jobs:
       - name: Checkout submodules
         run: git submodule update --init --recursive
 
-      - name: Install dependencies + fix locale
+      - name: Install dependencies
         run: |
           apt-get update || true
           apt-get install -y \
@@ -25,17 +25,21 @@ jobs:
             diffstat \
             lz4 \
             zstd \
-            pzstd \
-            python3 \
             unzip \
+            python3 \
             build-essential \
             locales || true
 
-          # 🔥 WICHTIG: locale aktivieren
-          echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
-          locale-gen
+      - name: Generate locale correctly
+        run: |
+          echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+          apt-get install -y locales || true
+          dpkg-reconfigure --frontend=noninteractive locales || true
 
-          update-locale LANG=en_US.UTF-8
+          export LANG=en_US.UTF-8
+          export LC_ALL=en_US.UTF-8
+
+          locale
 
       - name: Create non-root user
         run: |
