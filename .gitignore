@@ -16,3 +16,4 @@ buildroot/
 actions-runner/
 misc-modules/
 scull/
+build_modules_buildroot.sh
