@@ -2,24 +2,26 @@
 
 case "$1" in
 start)
-    echo "Loading LDD modules"
-    
-    # create device nodes
-
-    # scull
-    rm -f /dev/scull*
-    mknod /dev/scull c 248 0
-    mknod /dev/scullp c 248 1
-    mknod /dev/sculla c 248 2
-
-    # faulty
-    rm -f /dev/faulty
-    mknod /dev/faulty c 247 0
-
     # load modules
+    echo "Loading LDD modules"
     modprobe scull
     modprobe faulty
     modprobe hello
+
+    # remove old nodes
+    rm -f /dev/scull*
+    rm -f /dev/faulty
+
+
+    # get major numbers
+    SCULL_MAJOR=$(cat /proc/devices | awk "\$2==\"scull\" {print \$1}")
+    FAULTY_MAJOR=$(cat /proc/devices | awk "\$2==\"faulty\" {print \$1}")
+
+    # create device nodes
+    mknod /dev/scull c $SCULL_MAJOR 0
+    mknod /dev/scullp c $SCULL_MAJOR 1
+    mknod /dev/sculla c $SCULL_MAJOR 2
+    mknod /dev/faulty c $FAULTY_MAJOR 0
 
     ;;
 stop)

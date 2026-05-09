@@ -3,8 +3,17 @@ LDD_SITE = $(BR2_EXTERNAL_project_base_PATH)
 LDD_SITE_METHOD = local
 
 define LDD_BUILD_CMDS
-    $(MAKE) -C $(TOPDIR)/../misc-modules KDIR=$(LINUX_DIR)
-    $(MAKE) -C $(TOPDIR)/../scull KDIR=$(LINUX_DIR)
+    $(MAKE) -C $(LINUX_DIR) \
+        M=$(TOPDIR)/../misc-modules \
+        ARCH=$(KERNEL_ARCH) \
+        CROSS_COMPILE=$(TARGET_CROSS) \
+        modules
+
+    $(MAKE) -C $(LINUX_DIR) \
+        M=$(TOPDIR)/../scull \
+        ARCH=$(KERNEL_ARCH) \
+        CROSS_COMPILE=$(TARGET_CROSS) \
+        modules
 endef
 
 define LDD_INSTALL_TARGET_CMDS
@@ -14,3 +23,4 @@ define LDD_INSTALL_TARGET_CMDS
 endef
 
 $(eval $(generic-package))
+
