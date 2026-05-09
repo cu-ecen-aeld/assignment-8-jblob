@@ -11,7 +11,15 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v2
+
       - name: Checkout submodules
         run: git submodule update --init --recursive
+
+      - name: Fix locale for Yocto
+        run: |
+          export LANG=en_US.UTF-8
+          export LC_ALL=en_US.UTF-8
+          locale-gen en_US.UTF-8 || true
+
       - name: Run full test
         run: ./full-test.sh
