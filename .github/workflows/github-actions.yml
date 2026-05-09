@@ -15,7 +15,7 @@ jobs:
             run : git submodule update --init --recursive
           - name: Run unit test
             run: ./unit-test.sh
-    full-test:
+    full-test-old:
         container: cuaesd/aesd-autotest:24-assignment7
         runs-on: self-hosted
         steps:
