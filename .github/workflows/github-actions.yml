@@ -16,21 +16,21 @@ jobs:
       - name: Checkout submodules
         run: git submodule update --init --recursive
 
-      - name: Install and configure locale
+      - name: Install Yocto dependencies
         run: |
           apt-get update || true
-          apt-get install -y locales || true
+          apt-get install -y \
+            gawk \
+            chrpath \
+            diffstat \
+            lz4 \
+            zstd \
+            python3 \
+            unzip \
+            build-essential \
+            locales || true
 
           locale-gen en_US.UTF-8 || true
-
-          echo "LANG=en_US.UTF-8" >> /etc/environment
-          echo "LC_ALL=en_US.UTF-8" >> /etc/environment
-
-          export LANG=en_US.UTF-8
-          export LC_ALL=en_US.UTF-8
-          export LANGUAGE=en_US.UTF-8
-
-          locale
 
       - name: Run full test
         run: |
