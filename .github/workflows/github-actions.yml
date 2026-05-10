@@ -10,12 +10,9 @@ jobs:
     runs-on: self-hosted
 
     container:
-      image: cuaesd/aesd-autotest:24-assignment7-buildroot
-      options: >-
-        -u $(id -u):$(id -g)
-        -v /home/jblob/yocto-cache:/yocto-cache
-        -v /home/jblob/yocto-build:/build
-
+        image: cuaesd/aesd-autotest:24-assignment7-buildroot
+        options: -u 1000:1000 -v /home/jblob/yocto-cache:/yocto-cache -v /home/jblob/yocto-build:/build
+  
     steps:
       - uses: actions/checkout@v2
 
