@@ -14,7 +14,8 @@ jobs:
       options: -v /home/jblob/yocto-cache:/yocto-cache -v /home/jblob/yocto-build:/build
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
       - name: Checkout submodules
         run: git submodule update --init --recursive
@@ -23,25 +24,36 @@ jobs:
         run: |
           apt-get update
           apt-get install -y locales python3-distutils gawk chrpath diffstat lz4 zstd unzip build-essential
-
           echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
           locale-gen
 
-      - name: Create non-root user
+      - name: Setup builder user and permissions
         run: |
-          useradd -m builder
-          chown -R builder:builder build || true
+          # User erstellen falls nicht vorhanden
+          useradd -m builder || true
+          
+          # Build-Ordner VOR dem chown erstellen
+          mkdir -p build/conf
+          
+          # Berechtigungen für den gesamten Workspace setzen
+          # Dies behebt die 'Permission denied' Fehler bei .git und bitbake.lock
+          chown -R builder:builder .
+          
+          # Optional: Falls der Cache-Mount Schreibrechte benötigt
+          chown -R builder:builder /yocto-cache || true
 
       - name: Setup Yocto cache
         run: |
-          mkdir -p build/conf
-          echo 'DL_DIR = "/yocto-cache/downloads"' >> build/conf/local.conf
-          echo 'SSTATE_DIR = "/yocto-cache/sstate-cache"' >> build/conf/local.conf
+          su builder -c "
+            echo 'DL_DIR = \"/yocto-cache/downloads\"' >> build/conf/local.conf
+            echo 'SSTATE_DIR = \"/yocto-cache/sstate-cache\"' >> build/conf/local.conf
+          "
 
       - name: Run full test
         run: |
           su builder -c "
             export LANG=en_US.UTF-8
             export LC_ALL=en_US.UTF-8
+            export HOME=/home/builder
             ./full-test.sh
           "
