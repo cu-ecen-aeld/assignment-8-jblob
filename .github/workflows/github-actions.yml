@@ -30,7 +30,7 @@ jobs:
       - name: Create non-root user
         run: |
           useradd -m builder
-          chown -R builder:builder .
+          chown -R builder:builder /__w
 
       - name: Setup Yocto cache
         run: |
