@@ -19,10 +19,10 @@ jobs:
       - name: Checkout submodules
         run: git submodule update --init --recursive
 
-      - name: Install dependencies + locale (root)
+      - name: Install dependencies + locale
         run: |
           apt-get update
-          apt-get install -y locales python3-distutils
+          apt-get install -y locales python3-distutils gawk chrpath diffstat lz4 zstd unzip build-essential
 
           echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
           locale-gen
@@ -30,7 +30,7 @@ jobs:
       - name: Create non-root user
         run: |
           useradd -m builder
-          chown -R builder:builder /__w
+          chown -R builder:builder build || true
 
       - name: Setup Yocto cache
         run: |
@@ -38,7 +38,7 @@ jobs:
           echo 'DL_DIR = "/yocto-cache/downloads"' >> build/conf/local.conf
           echo 'SSTATE_DIR = "/yocto-cache/sstate-cache"' >> build/conf/local.conf
 
-      - name: Run full test (non-root)
+      - name: Run full test
         run: |
           su builder -c "
             export LANG=en_US.UTF-8
