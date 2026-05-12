@@ -11,8 +11,8 @@ jobs:
 
     container:
       image: cuaesd/aesd-autotest:24-assignment7-buildroot
-      # --network host ist essenziell, damit SSH vom Container auf den QEMU-Port zugreifen kann
-      options: -v /home/jblob/yocto-cache:/yocto-cache -v /home/jblob/yocto-build:/build --network host
+      # ENTFERNT: --network host (verursacht Exit Code 125)
+      options: -v /home/jblob/yocto-cache:/yocto-cache -v /home/jblob/yocto-build:/build
 
     steps:
       - name: Checkout code
@@ -34,7 +34,9 @@ jobs:
           rm -rf build
           ln -s /build build
           mkdir -p build/conf
-          chown -R builder:builder build /build /yocto-cache || true
+          chown -R builder:builder .
+          chown -R builder:builder /build
+          chown -R builder:builder /yocto-cache || true
 
       - name: Setup Yocto cache
         run: |
@@ -66,9 +68,9 @@ jobs:
             export LC_ALL=en_US.UTF-8
             export HOME=/home/builder
             
-            # Diese Variablen zwingen runqemu auf den richtigen Port (10022)
+            # Wir setzen MACHINE und erzwingen die Portweiterleitung innerhalb des Containers
             export MACHINE=qemuarm64
-            export QB_SLIRP_OPT=\"hostfwd=tcp::10022-:22\"
+            export QB_SLIRP_OPT=\"hostfwd=tcp:127.0.0.1:10022-:22\"
             
             ./full-test.sh
           "
