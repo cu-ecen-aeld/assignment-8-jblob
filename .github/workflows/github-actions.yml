@@ -61,7 +61,7 @@ jobs:
             echo "BBLAYERS += \"${LAYER_PATH}\"" >> build/conf/bblayers.conf
           '
 
-      # ✅ WICHTIG: Port direkt im QEMU Config File reparieren
+      # WICHTIG: Port direkt im QEMU Config File reparieren
       - name: Fix QEMU port in qemuboot.conf
         run: |
           su builder -c "
@@ -75,3 +75,9 @@ jobs:
       - name: Run full test
         run: |
           su builder -c "
+            export LANG=en_US.UTF-8
+            export LC_ALL=en_US.UTF-8
+            export HOME=/home/builder
+
+            ./full-test.sh
+          "
