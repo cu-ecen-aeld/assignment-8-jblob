@@ -55,6 +55,18 @@ jobs:
             echo 'TMPDIR = \"/build/tmp\"' >> build/conf/local.conf
           "
 
+      - name: Fix bblayers.conf
+        run: |
+          su builder -c "
+            if [ -f build/conf/bblayers.conf ]; then
+              sed -i 's|/meta-aesd|$(pwd)/meta-aesd|g' build/conf/bblayers.conf
+              
+              # Sicherheit: ensure Eintrag existiert
+              grep -q meta-aesd build/conf/bblayers.conf || \
+              echo 'BBLAYERS += \"$(pwd)/meta-aesd\"' >> build/conf/bblayers.conf
+            fi
+          "
+
       - name: Run full test
         run: |
           su builder -c "
@@ -64,3 +76,4 @@ jobs:
             export QEMU_EXTRA_ARGS='hostfwd=tcp::10022-:22'
             ./full-test.sh
           "
+``
