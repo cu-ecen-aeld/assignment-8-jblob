@@ -30,6 +30,7 @@ jobs:
       - name: Setup builder user and workspace
         run: |
           useradd -m builder || true
+          # Persistenten Build-Ordner verknüpfen
           rm -rf build
           ln -s /build build
           mkdir -p build/conf
@@ -40,26 +41,22 @@ jobs:
       - name: Repair and Configure Yocto
         shell: bash
         run: |
-          # Wir nutzen bash explizit für den User builder (-s /bin/bash)
           su builder -s /bin/bash -c "
-            # 1. local.conf bereinigen
+            # 1. local.conf Grundkonfiguration
             mkdir -p build/conf
             [ -f build/conf/local.conf ] || echo 'CONF_VERSION = \"2\"' > build/conf/local.conf
             
-            # Entferne alte Pfade, um Duplikate durch mehrfache CI-Läufe zu verhindern
+            # Alte Pfade entfernen
             sed -i '/DL_DIR/d; /SSTATE_DIR/d; /TMPDIR/d; /MACHINE/d; /QB_SLIRP_OPT/d' build/conf/local.conf
             
             echo 'DL_DIR = \"/yocto-cache/downloads\"' >> build/conf/local.conf
             echo 'SSTATE_DIR = \"/yocto-cache/sstate-cache\"' >> build/conf/local.conf
             echo 'TMPDIR = \"/build/tmp\"' >> build/conf/local.conf
             echo 'MACHINE = \"qemuarm64\"' >> build/conf/local.conf
-            
-            # SSH Port-Forwarding (10022 -> 22) direkt in die Konfiguration
             echo 'QB_SLIRP_OPT = \"hostfwd=tcp::10022-:22\"' >> build/conf/local.conf
 
-            # 2. bblayers.conf RADIKAL-FIX
-            # Wir löschen die kaputte Datei vom Host. 
-            # oe-init-build-env erstellt sie im nächsten Schritt mit Container-Pfaden neu.
+            # 2. bblayers.conf Reset
+            # Wir löschen die Datei, um Pfad-Leichen vom Host zu entfernen
             rm -f build/conf/bblayers.conf
           "
 
@@ -71,13 +68,16 @@ jobs:
             export LC_ALL=en_US.UTF-8
             export HOME=/home/builder
             
-            # Initialisiere die Umgebung (erstellt bblayers.conf neu)
+            # Pfad zum Workspace speichern
+            WORKSPACE=\$(pwd)
+            
+            # Umgebung initialisieren (erstellt frische bblayers.conf)
             source poky/oe-init-build-env build
             
-            # Füge den Layer mit relativem Pfad hinzu, damit er überall funktioniert
-            bitbake-layers add-layer ../meta-aesd
+            # Layer mit ABSOLUTEM Pfad hinzufügen (löst das 'not exist' Problem)
+            bitbake-layers add-layer \${WORKSPACE}/meta-aesd
             
-            # Starte das Test-Skript
-            cd /__w/assignments-3-and-later-jblob/assignments-3-and-later-jblob
+            # Zurück zum Root für das Test-Skript
+            cd \${WORKSPACE}
             ./full-test.sh
           "
