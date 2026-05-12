@@ -38,9 +38,11 @@ jobs:
           chown -R builder:builder /yocto-cache || true
 
       - name: Repair and Configure Yocto
+        shell: bash
         run: |
-          su builder -c "
-            # 1. local.conf bereinigen und konfigurieren
+          # Wir nutzen bash direkt für den User builder
+          su builder -s /bin/bash -c "
+            # 1. local.conf fixen
             [ -f build/conf/local.conf ] || echo 'CONF_VERSION = \"2\"' > build/conf/local.conf
             sed -i '/DL_DIR/d' build/conf/local.conf
             sed -i '/SSTATE_DIR/d' build/conf/local.conf
@@ -52,28 +54,30 @@ jobs:
             echo 'SSTATE_DIR = \"/yocto-cache/sstate-cache\"' >> build/conf/local.conf
             echo 'TMPDIR = \"/build/tmp\"' >> build/conf/local.conf
             echo 'MACHINE = \"qemuarm64\"' >> build/conf/local.conf
-            
-            # Der SSH-Port Fix direkt in Yocto
             echo 'QB_SLIRP_OPT = \"hostfwd=tcp::10022-:22\"' >> build/conf/local.conf
 
-            # 2. bblayers.conf Pfad-Fix
-            # Ersetzt absolute Pfade durch relative Pfade (${TOPDIR} ist der build-Ordner)
+            # 2. bblayers.conf Pfad-Fix (Sehr wichtig!)
             if [ -f build/conf/bblayers.conf ]; then
-              sed -i 's|/home/jblob/git3/assignments-3-and-later-jblob/|${TOPDIR}/../|g' build/conf/bblayers.conf
+              # Wir ersetzen JEDEN absoluten Pfad durch einen relativen Pfad basierend auf TOPDIR
+              # Damit ist es egal, ob der Pfad /home/jblob... (Host) oder /__w/... (Container) heißt
+              sed -i 's|\"[^ ]*/poky/|\"${TOPDIR}/../poky/|g' build/conf/bblayers.conf
+              sed -i 's|\"[^ ]*/meta-aesd|\"${TOPDIR}/../meta-aesd|g' build/conf/bblayers.conf
             fi
           "
 
       - name: Run full test
+        shell: bash
         run: |
-          su builder -c "
+          # -s /bin/bash löst das 'source: not found' Problem
+          su builder -s /bin/bash -c "
             export LANG=en_US.UTF-8
             export LC_ALL=en_US.UTF-8
             export HOME=/home/builder
             
-            # Umgebung laden
+            # Initialisiere die Umgebung im Container-Kontext
+            cd /__w/assignments-3-and-later-jblob/assignments-3-and-later-jblob
             source poky/oe-init-build-env build
             
-            # Test-Skript starten
             cd /__w/assignments-3-and-later-jblob/assignments-3-and-later-jblob
             ./full-test.sh
           "
