@@ -1,23 +1,65 @@
-- name: Repair and Configure Yocto
+name: assignment-test
+
+on:
+  push:
+    branches:
+      - '*'
+
+jobs:
+  full-test:
+    runs-on: self-hosted
+
+    container:
+      image: cuaesd/aesd-autotest:24-assignment7-buildroot
+      options: -v /home/jblob/yocto-cache:/yocto-cache -v /home/jblob/yocto-build:/build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Checkout submodules
+        run: git submodule update --init --recursive
+
+      - name: Install dependencies + locale
+        run: |
+          apt-get update
+          apt-get install -y locales python3-distutils gawk chrpath diffstat lz4 zstd unzip build-essential
+          echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+          locale-gen
+
+      - name: Setup builder user and workspace
+        run: |
+          useradd -m builder || true
+          rm -rf build
+          ln -s /build build
+          mkdir -p build/conf
+          chown -R builder:builder .
+          chown -R builder:builder /build
+          chown -R builder:builder /yocto-cache || true
+
+      - name: Repair and Configure Yocto
         shell: bash
         run: |
+          # Wir nutzen bash explizit für den User builder (-s /bin/bash)
           su builder -s /bin/bash -c "
-            # 1. local.conf konfigurieren
+            # 1. local.conf bereinigen
             mkdir -p build/conf
             [ -f build/conf/local.conf ] || echo 'CONF_VERSION = \"2\"' > build/conf/local.conf
             
-            # Alte Einträge entfernen um Duplikate zu vermeiden
+            # Entferne alte Pfade, um Duplikate durch mehrfache CI-Läufe zu verhindern
             sed -i '/DL_DIR/d; /SSTATE_DIR/d; /TMPDIR/d; /MACHINE/d; /QB_SLIRP_OPT/d' build/conf/local.conf
             
             echo 'DL_DIR = \"/yocto-cache/downloads\"' >> build/conf/local.conf
             echo 'SSTATE_DIR = \"/yocto-cache/sstate-cache\"' >> build/conf/local.conf
             echo 'TMPDIR = \"/build/tmp\"' >> build/conf/local.conf
             echo 'MACHINE = \"qemuarm64\"' >> build/conf/local.conf
+            
+            # SSH Port-Forwarding (10022 -> 22) direkt in die Konfiguration
             echo 'QB_SLIRP_OPT = \"hostfwd=tcp::10022-:22\"' >> build/conf/local.conf
 
-            # 2. bblayers.conf RADIKAL FIX
-            # Wir löschen die Datei, damit sie im nächsten Schritt sauber neu erstellt wird.
-            # Dies behebt den 'BBLAYERS definition missing' Fehler.
+            # 2. bblayers.conf RADIKAL-FIX
+            # Wir löschen die kaputte Datei vom Host. 
+            # oe-init-build-env erstellt sie im nächsten Schritt mit Container-Pfaden neu.
             rm -f build/conf/bblayers.conf
           "
 
@@ -29,12 +71,13 @@
             export LC_ALL=en_US.UTF-8
             export HOME=/home/builder
             
-            # Initialisiert die Umgebung und erstellt eine frische bblayers.conf
+            # Initialisiere die Umgebung (erstellt bblayers.conf neu)
             source poky/oe-init-build-env build
             
-            # Fügt den Layer mit relativem Pfad hinzu (funktioniert im Container & Host)
+            # Füge den Layer mit relativem Pfad hinzu, damit er überall funktioniert
             bitbake-layers add-layer ../meta-aesd
             
+            # Starte das Test-Skript
             cd /__w/assignments-3-and-later-jblob/assignments-3-and-later-jblob
             ./full-test.sh
           "
