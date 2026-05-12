@@ -51,7 +51,7 @@ jobs:
             echo 'TMPDIR = \"/build/tmp\"' >> build/conf/local.conf
           "
 
-      - name: Fix bblayers.conf (clean)
+      - name: Fix bblayers.conf
         run: |
           su builder -c '
             LAYER_PATH=$(realpath meta-aesd)
@@ -59,7 +59,6 @@ jobs:
             echo "BBLAYERS += \"${LAYER_PATH}\"" >> build/conf/bblayers.conf
           '
 
-      # FINALER FIX: runqemu WRAPPER (NICHT überschreibbar)
       - name: Run full test with forced QEMU port
         run: |
           su builder -c "
@@ -69,23 +68,14 @@ jobs:
 
             mkdir -p \$HOME/bin
 
-            cat << 'EOF' > \$HOME/bin/runqemu
-#!/bin/bash
-
-# echtes runqemu finden
-REAL_RUNQEMU=\$(command -v runqemu)
-
-echo \"[Wrapper] Forcing SSH port 10022\" >&2
-
-# immer unseren Port anhängen
-exec \$REAL_RUNQEMU \"\$@\" nographic slirp hostfwd=tcp::10022-:22
-EOF
+            echo '#!/bin/bash' > \$HOME/bin/runqemu
+            echo 'REAL_RUNQEMU=\$(command -v runqemu)' >> \$HOME/bin/runqemu
+            echo 'echo \"[Wrapper] Forcing SSH port 10022\" >&2' >> \$HOME/bin/runqemu
+            echo 'exec \$REAL_RUNQEMU \"\$@\" nographic slirp hostfwd=tcp::10022-:22' >> \$HOME/bin/runqemu
 
             chmod +x \$HOME/bin/runqemu
 
-            # Wrapper priorisieren
             export PATH=\$HOME/bin:\$PATH
 
             ./full-test.sh
           "
-``
