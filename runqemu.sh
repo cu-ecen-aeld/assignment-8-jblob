@@ -1,7 +1,8 @@
 #!/bin/bash
+# Initialisiere die Bitbake Umgebung (relativ zum Projekt-Root)
+source poky/oe-init-build-env build
 
-# Start Yocto QEMU correctly
-source poky/oe-init-build-env
-export QEMU_EXTRA_ARGS="-netdev user,id=net0,hostfwd=tcp::10022-:22"
+# Starte QEMU
+# nographic: Ausgabe in der Konsole
+# slirp: Aktiviert das User-Mode-Networking (nutzt QB_SLIRP_OPT aus der local.conf)
 runqemu nographic slirp
-#runqemu qemux86-64 nographic slirp
