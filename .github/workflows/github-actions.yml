@@ -30,13 +30,10 @@ jobs:
       - name: Setup builder user and persistent workspace
         run: |
           useradd -m builder || true
-          # Verknüpfung zum Laptop-Volume herstellen
           rm -rf build
           ln -s /build build
           mkdir -p build/conf
-          chown -R builder:builder .
-          chown -R builder:builder /build
-          chown -R builder:builder /yocto-cache || true
+          chown -R builder:builder build /build /yocto-cache || true
 
       - name: Setup Yocto cache and persistent TMPDIR
         run: |
@@ -45,7 +42,6 @@ jobs:
               echo 'CONF_VERSION = \"2\"' > build/conf/local.conf
             fi
             
-            # paths for downloads und SSTATE-Cache
             sed -i '/DL_DIR/d' build/conf/local.conf
             sed -i '/SSTATE_DIR/d' build/conf/local.conf
             sed -i '/TMPDIR/d' build/conf/local.conf
@@ -55,17 +51,17 @@ jobs:
             echo 'TMPDIR = \"/build/tmp\"' >> build/conf/local.conf
           "
 
-      - name: Fix bblayers.conf
+      - name: Fix bblayers.conf (clean)
         run: |
-          su builder -c "
-            if [ -f build/conf/bblayers.conf ]; then
-              sed -i 's|/meta-aesd|$(pwd)/meta-aesd|g' build/conf/bblayers.conf
-              
-              # Sicherheit: ensure Eintrag existiert
-              grep -q meta-aesd build/conf/bblayers.conf || \
-              echo 'BBLAYERS += \"$(pwd)/meta-aesd\"' >> build/conf/bblayers.conf
-            fi
-          "
+          su builder -c '
+            LAYER_PATH=$(realpath meta-aesd)
+
+            # alte kaputte Einträge entfernen
+            sed -i "/meta-aesd/d" build/conf/bblayers.conf
+
+            # sauber hinzufügen
+            echo "BBLAYERS += \"${LAYER_PATH}\"" >> build/conf/bblayers.conf
+          '
 
       - name: Run full test
         run: |
@@ -73,9 +69,10 @@ jobs:
             export LANG=en_US.UTF-8
             export LC_ALL=en_US.UTF-8
             export HOME=/home/builder
-            export MACHINE=qemuarm64
-            export QEMU_EXTRA_ARGS='hostfwd=tcp::10022-:22'
+
+            # QEMU Fix
             export QEMU_PORT=10022
+            export QEMU_EXTRA_ARGS='hostfwd=tcp::10022-:22'
+
             ./full-test.sh
           "
-          
