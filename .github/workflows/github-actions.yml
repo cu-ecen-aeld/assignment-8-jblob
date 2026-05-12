@@ -41,11 +41,11 @@ jobs:
             if [ ! -f build/conf/local.conf ]; then
               echo 'CONF_VERSION = \"2\"' > build/conf/local.conf
             fi
-            
+
             sed -i '/DL_DIR/d' build/conf/local.conf
             sed -i '/SSTATE_DIR/d' build/conf/local.conf
             sed -i '/TMPDIR/d' build/conf/local.conf
-            
+
             echo 'DL_DIR = \"/yocto-cache/downloads\"' >> build/conf/local.conf
             echo 'SSTATE_DIR = \"/yocto-cache/sstate-cache\"' >> build/conf/local.conf
             echo 'TMPDIR = \"/build/tmp\"' >> build/conf/local.conf
@@ -56,32 +56,22 @@ jobs:
           su builder -c '
             LAYER_PATH=$(realpath meta-aesd)
 
-            # alte kaputte Einträge entfernen
             sed -i "/meta-aesd/d" build/conf/bblayers.conf
 
-            # sauber hinzufügen
             echo "BBLAYERS += \"${LAYER_PATH}\"" >> build/conf/bblayers.conf
           '
 
+      # ✅ WICHTIG: Port direkt im QEMU Config File reparieren
       - name: Fix QEMU port in qemuboot.conf
         run: |
           su builder -c "
-            CONF_FILE=$(ls build/tmp-glibc/deploy/images/qemuarm64/*.qemuboot.conf | head -n1)
+            CONF_FILE=\$(ls build/tmp-glibc/deploy/images/qemuarm64/*.qemuboot.conf | head -n1)
 
-            if [ -f \"$CONF_FILE\" ]; then
-              sed -i 's/hostfwd=tcp::2222-:22/hostfwd=tcp::10022-:22/g' $CONF_FILE
+            if [ -f \"\$CONF_FILE\" ]; then
+              sed -i 's/hostfwd=tcp::2222-:22/hostfwd=tcp::10022-:22/g' \$CONF_FILE
             fi
- 
+          "
+
       - name: Run full test
         run: |
           su builder -c "
-            export LANG=en_US.UTF-8
-            export LC_ALL=en_US.UTF-8
-            export HOME=/home/builder
-
-            # QEMU Fix
-            export QEMU_PORT=10022
-            export QEMU_EXTRA_ARGS='hostfwd=tcp::10022-:22'
-
-            ./full-test.sh
-          "
