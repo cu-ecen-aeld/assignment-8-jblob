@@ -11,7 +11,6 @@ jobs:
 
     container:
       image: cuaesd/aesd-autotest:24-assignment7-buildroot
-      # ENTFERNT: --network host (verursacht Exit Code 125)
       options: -v /home/jblob/yocto-cache:/yocto-cache -v /home/jblob/yocto-build:/build
 
     steps:
@@ -31,6 +30,7 @@ jobs:
       - name: Setup builder user and workspace
         run: |
           useradd -m builder || true
+          # Link zum permanenten Build-Ordner auf dem Laptop
           rm -rf build
           ln -s /build build
           mkdir -p build/conf
@@ -38,28 +38,38 @@ jobs:
           chown -R builder:builder /build
           chown -R builder:builder /yocto-cache || true
 
-      - name: Setup Yocto cache
+      - name: Configure Yocto (local.conf & bblayers)
         run: |
           su builder -c "
+            # 1. local.conf bereinigen und fixieren
             [ -f build/conf/local.conf ] || echo 'CONF_VERSION = \"2\"' > build/conf/local.conf
             sed -i '/DL_DIR/d' build/conf/local.conf
             sed -i '/SSTATE_DIR/d' build/conf/local.conf
             sed -i '/TMPDIR/d' build/conf/local.conf
             sed -i '/MACHINE/d' build/conf/local.conf
+            sed -i '/QB_SLIRP_OPT/d' build/conf/local.conf
             
             echo 'DL_DIR = \"/yocto-cache/downloads\"' >> build/conf/local.conf
             echo 'SSTATE_DIR = \"/yocto-cache/sstate-cache\"' >> build/conf/local.conf
             echo 'TMPDIR = \"/build/tmp\"' >> build/conf/local.conf
             echo 'MACHINE = \"qemuarm64\"' >> build/conf/local.conf
+            
+            # DER ENTSCHEIDENDE FIX: Port 10022 direkt in die Build-Konfiguration
+            echo 'QB_SLIRP_OPT = \"hostfwd=tcp::10022-:22\"' >> build/conf/local.conf
+
+            # 2. bblayers.conf Pfade zurücksetzen
+            # Wir löschen die alten Pfade, damit das build.sh Skript sie neu (korrekt) setzt
+            if [ -f build/conf/bblayers.conf ]; then
+              sed -i '/meta-aesd/d' build/conf/bblayers.conf
+              sed -i '/poky\/meta/d' build/conf/bblayers.conf
+            fi
           "
 
-      - name: Fix bblayers.conf
+      - name: Patch runqemu script
         run: |
-          su builder -c '
-            LAYER_PATH=$(realpath meta-aesd)
-            sed -i "/meta-aesd/d" build/conf/bblayers.conf
-            echo "BBLAYERS += \"${LAYER_PATH}\"" >> build/conf/bblayers.conf
-          '
+          # Wir entfernen die hartcodierten QEMU_EXTRA_ARGS aus deinem Skript,
+          # da diese jetzt sauber über die local.conf (QB_SLIRP_OPT) kommen.
+          find . -name "runqemu.sh" -exec sed -i 's/export QEMU_EXTRA_ARGS=.*//g' {} +
 
       - name: Run full test
         run: |
@@ -67,10 +77,6 @@ jobs:
             export LANG=en_US.UTF-8
             export LC_ALL=en_US.UTF-8
             export HOME=/home/builder
-            
-            # Wir setzen MACHINE und erzwingen die Portweiterleitung innerhalb des Containers
             export MACHINE=qemuarm64
-            export QB_SLIRP_OPT=\"hostfwd=tcp:127.0.0.1:10022-:22\"
-            
             ./full-test.sh
           "
