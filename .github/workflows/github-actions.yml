@@ -1,54 +1,13 @@
-name: assignment-test
-
-on:
-  push:
-    branches:
-      - '*'
-
-jobs:
-  full-test:
-    runs-on: self-hosted
-
-    container:
-      image: cuaesd/aesd-autotest:24-assignment7-buildroot
-      options: -v /home/jblob/yocto-cache:/yocto-cache -v /home/jblob/yocto-build:/build
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Checkout submodules
-        run: git submodule update --init --recursive
-
-      - name: Install dependencies + locale
-        run: |
-          apt-get update
-          apt-get install -y locales python3-distutils gawk chrpath diffstat lz4 zstd unzip build-essential
-          echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
-          locale-gen
-
-      - name: Setup builder user and workspace
-        run: |
-          useradd -m builder || true
-          rm -rf build
-          ln -s /build build
-          mkdir -p build/conf
-          chown -R builder:builder .
-          chown -R builder:builder /build
-          chown -R builder:builder /yocto-cache || true
-
-      - name: Repair and Configure Yocto
+- name: Repair and Configure Yocto
         shell: bash
         run: |
-          # Wir nutzen bash direkt für den User builder
           su builder -s /bin/bash -c "
-            # 1. local.conf fixen
+            # 1. local.conf konfigurieren
+            mkdir -p build/conf
             [ -f build/conf/local.conf ] || echo 'CONF_VERSION = \"2\"' > build/conf/local.conf
-            sed -i '/DL_DIR/d' build/conf/local.conf
-            sed -i '/SSTATE_DIR/d' build/conf/local.conf
-            sed -i '/TMPDIR/d' build/conf/local.conf
-            sed -i '/MACHINE/d' build/conf/local.conf
-            sed -i '/QB_SLIRP_OPT/d' build/conf/local.conf
+            
+            # Alte Einträge entfernen um Duplikate zu vermeiden
+            sed -i '/DL_DIR/d; /SSTATE_DIR/d; /TMPDIR/d; /MACHINE/d; /QB_SLIRP_OPT/d' build/conf/local.conf
             
             echo 'DL_DIR = \"/yocto-cache/downloads\"' >> build/conf/local.conf
             echo 'SSTATE_DIR = \"/yocto-cache/sstate-cache\"' >> build/conf/local.conf
@@ -56,27 +15,25 @@ jobs:
             echo 'MACHINE = \"qemuarm64\"' >> build/conf/local.conf
             echo 'QB_SLIRP_OPT = \"hostfwd=tcp::10022-:22\"' >> build/conf/local.conf
 
-            # 2. bblayers.conf Pfad-Fix (Sehr wichtig!)
-            if [ -f build/conf/bblayers.conf ]; then
-              # Wir ersetzen JEDEN absoluten Pfad durch einen relativen Pfad basierend auf TOPDIR
-              # Damit ist es egal, ob der Pfad /home/jblob... (Host) oder /__w/... (Container) heißt
-              sed -i 's|\"[^ ]*/poky/|\"${TOPDIR}/../poky/|g' build/conf/bblayers.conf
-              sed -i 's|\"[^ ]*/meta-aesd|\"${TOPDIR}/../meta-aesd|g' build/conf/bblayers.conf
-            fi
+            # 2. bblayers.conf RADIKAL FIX
+            # Wir löschen die Datei, damit sie im nächsten Schritt sauber neu erstellt wird.
+            # Dies behebt den 'BBLAYERS definition missing' Fehler.
+            rm -f build/conf/bblayers.conf
           "
 
       - name: Run full test
         shell: bash
         run: |
-          # -s /bin/bash löst das 'source: not found' Problem
           su builder -s /bin/bash -c "
             export LANG=en_US.UTF-8
             export LC_ALL=en_US.UTF-8
             export HOME=/home/builder
             
-            # Initialisiere die Umgebung im Container-Kontext
-            cd /__w/assignments-3-and-later-jblob/assignments-3-and-later-jblob
+            # Initialisiert die Umgebung und erstellt eine frische bblayers.conf
             source poky/oe-init-build-env build
+            
+            # Fügt den Layer mit relativem Pfad hinzu (funktioniert im Container & Host)
+            bitbake-layers add-layer ../meta-aesd
             
             cd /__w/assignments-3-and-later-jblob/assignments-3-and-later-jblob
             ./full-test.sh
