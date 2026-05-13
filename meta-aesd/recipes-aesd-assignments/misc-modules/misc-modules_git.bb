@@ -13,7 +13,7 @@ inherit module update-rc.d
 # Init-Script Konfiguration für Yocto
 INITSCRIPT_PACKAGES = "${PN}"
 INITSCRIPT_NAME:${PN} = "S98lddmodules"
-INITSCRIPT_PARAMS:${PN} = "defaults 98"
+INITSCRIPT_PARAMS:${PN} = "defaults 97"
 
 # force make to work in subdirectory scull only
 EXTRA_OEMAKE += "KERNELDIR=${STAGING_KERNEL_DIR} M=${S}/misc-modules"
