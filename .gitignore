@@ -14,6 +14,7 @@ valgrind-out.txt
 test.sh.log
 buildroot/
 actions-runner/
-misc-modules/
-scull/
+/misc-modules/
+/scull/
 build_modules_buildroot.sh
+conf/
