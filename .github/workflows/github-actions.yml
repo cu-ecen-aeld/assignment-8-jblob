@@ -55,14 +55,15 @@ jobs:
             # Clean previous entries
             sed -i '/DL_DIR/d; /SSTATE_DIR/d; /SSTATE_MIRRORS/d; /TMPDIR/d; /MACHINE/d' build/conf/local.conf
 
-            # ✅ Download cache
+            # Download cache
             echo 'DL_DIR = \"/yocto-cache/downloads\"' >> build/conf/local.conf
 
-            # ✅ Shared sstate cache (MOST IMPORTANT)
+            # Shared sstate cache (MOST IMPORTANT)
             echo 'SSTATE_DIR = \"/yocto-cache/sstate-cache\"' >> build/conf/local.conf
-            echo 'SSTATE_MIRRORS = \"file:///yocto-cache/sstate-cache/PATH\"' >> build/conf/local.conf
+            # echo 'SSTATE_MIRRORS = \"file:///yocto-cache/sstate-cache/PATH\"' >> build/conf/local.conf
+            echo 'SSTATE_MIRRORS = "file://.* file:///yocto-cache/sstate-cache/PATH"' >> build/conf/local.conf
 
-            # ✅ Persistent build output
+            # Persistent build output
             echo 'TMPDIR = \"/build/tmp\"' >> build/conf/local.conf
 
             # Standard settings
@@ -80,7 +81,7 @@ jobs:
             export LC_ALL=en_US.UTF-8
             export HOME=/home/builder
 
-            # ✅ capture repo root BEFORE yocto messes with cwd
+            # capture repo root BEFORE yocto messes with cwd
             ROOTDIR=\$(pwd)
 
             source poky/oe-init-build-env build
