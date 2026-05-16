@@ -69,7 +69,7 @@ jobs:
             echo 'MACHINE = \"qemuarm64\"' >> build/conf/local.conf
             echo 'EXTRA_IMAGE_FEATURES = \"debug-tweaks\"' >> build/conf/local.conf
             echo 'INHERIT += \"extrausers\"' >> build/conf/local.conf
-            echo 'EXTRA_USERS_PARAMS = \"usermod -p \\\"\\\" root;\"' >> build/conf/local.conf
+            echo 'EXTRA_USERS_PARAMS = "usermod -p "" root;"' >> build/conf/local.conf
           "
 
       - name: Run full test
