@@ -40,7 +40,9 @@ jobs:
       - name: Start port forward (10022 -> 2222)
         run: |
           (while true; do
-             socat TCP-LISTEN:10022,fork TCP:localhost:2222
+            for p in 2222 10023 10024 10025; do
+               socat TCP-LISTEN:10022,fork TCP:localhost:$p 2>/dev/null && break
+             done
              sleep 1
            done) &
 
