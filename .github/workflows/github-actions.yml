@@ -39,7 +39,6 @@ jobs:
 
       - name: Start port forward (10022 -> 2222)
         run: |
-          # robust forward: always retry
           (while true; do
              socat TCP-LISTEN:10022,fork TCP:localhost:2222
              sleep 1
@@ -71,12 +70,13 @@ jobs:
             export LC_ALL=en_US.UTF-8
             export HOME=/home/builder
 
-            WORKSPACE=$GITHUB_WORKSPACE
-
             source poky/oe-init-build-env build
 
-            bitbake-layers add-layer ${WORKSPACE}/meta-aesd
+            # repo root wiederfinden
+            export WORKSPACE=\$(pwd)/..
 
-            cd ${WORKSPACE}
+            bitbake-layers add-layer \$WORKSPACE/meta-aesd
+
+            cd \$WORKSPACE
             ./full-test.sh
           "
