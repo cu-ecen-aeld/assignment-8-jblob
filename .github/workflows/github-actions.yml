@@ -70,14 +70,13 @@ jobs:
             export LC_ALL=en_US.UTF-8
             export HOME=/home/builder
 
-            # ✅ IMPORTANT: capture repo root FIRST
-            ROOTDIR=$(pwd)
+            # IMPORTANT: escape for su
+            ROOTDIR=\$(pwd)
 
             source poky/oe-init-build-env build
 
-            # ✅ now use saved path
-            bitbake-layers add-layer ${ROOTDIR}/meta-aesd
+            bitbake-layers add-layer \$ROOTDIR/meta-aesd
 
-            cd ${ROOTDIR}
+            cd \$ROOTDIR
             ./full-test.sh
           "
