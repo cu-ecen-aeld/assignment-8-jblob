@@ -44,49 +44,47 @@ jobs:
              sleep 1
            done) &
 
-      - name: Configure Yocto with full cache support
-        shell: bash
+      - name: Configure Yocto cleanly (HEREDOC = no quoting errors)
         run: |
-          su builder -s /bin/bash -c "
-            mkdir -p build/conf
+          su builder -s /bin/bash <<'EOF'
 
-            [ -f build/conf/local.conf ] || echo 'CONF_VERSION = \"2\"' > build/conf/local.conf
+          mkdir -p build/conf
 
-            # Clean previous entries
-            sed -i '/DL_DIR/d; /SSTATE_DIR/d; /SSTATE_MIRRORS/d; /TMPDIR/d; /MACHINE/d' build/conf/local.conf
+          if [ ! -f build/conf/local.conf ]; then
+            echo 'CONF_VERSION = "2"' > build/conf/local.conf
+          fi
 
-            # Download cache
-            echo 'DL_DIR = \"/yocto-cache/downloads\"' >> build/conf/local.conf
+          sed -i '/DL_DIR/d; /SSTATE_DIR/d; /SSTATE_MIRRORS/d; /TMPDIR/d; /MACHINE/d' build/conf/local.conf
 
-            # Shared sstate cache (MOST IMPORTANT)
-            echo 'SSTATE_DIR = "/yocto-cache/sstate-cache"' >> build/conf/local.conf
-            echo 'SSTATE_MIRRORS = "file://.* file:///yocto-cache/sstate-cache/PATH"' >> build/conf/local.conf
+          echo 'DL_DIR = "/yocto-cache/downloads"' >> build/conf/local.conf
 
-            # Persistent build output
-            echo 'TMPDIR = \"/build/tmp\"' >> build/conf/local.conf
+          echo 'SSTATE_DIR = "/yocto-cache/sstate-cache"' >> build/conf/local.conf
+          echo 'SSTATE_MIRRORS = "file://.* file:///yocto-cache/sstate-cache/PATH"' >> build/conf/local.conf
 
-            # Standard settings
-            echo 'MACHINE = \"qemuarm64\"' >> build/conf/local.conf
-            echo 'EXTRA_IMAGE_FEATURES = \"debug-tweaks\"' >> build/conf/local.conf
-            echo 'INHERIT += \"extrausers\"' >> build/conf/local.conf
-            echo 'EXTRA_USERS_PARAMS = "usermod -p "" root;"' >> build/conf/local.conf
-          "
+          echo 'TMPDIR = "/build/tmp"' >> build/conf/local.conf
+
+          echo 'MACHINE = "qemuarm64"' >> build/conf/local.conf
+          echo 'EXTRA_IMAGE_FEATURES = "debug-tweaks"' >> build/conf/local.conf
+          echo 'INHERIT += "extrausers"' >> build/conf/local.conf
+          echo 'EXTRA_USERS_PARAMS = "usermod -p '\'''\'' root;"' >> build/conf/local.conf
+
+          EOF
 
       - name: Run full test
-        shell: bash
         run: |
-          su builder -s /bin/bash -c "
-            export LANG=en_US.UTF-8
-            export LC_ALL=en_US.UTF-8
-            export HOME=/home/builder
+          su builder -s /bin/bash <<'EOF'
 
-            # capture repo root BEFORE yocto messes with cwd
-            ROOTDIR=\$(pwd)
+          export LANG=en_US.UTF-8
+          export LC_ALL=en_US.UTF-8
+          export HOME=/home/builder
 
-            source poky/oe-init-build-env build
+          ROOTDIR=$(pwd)
 
-            bitbake-layers add-layer \$ROOTDIR/meta-aesd
+          source poky/oe-init-build-env build
 
-            cd \$ROOTDIR
-            ./full-test.sh
-          "
+          bitbake-layers add-layer $ROOTDIR/meta-aesd
+
+          cd $ROOTDIR
+          ./full-test.sh
+
+          EOF
