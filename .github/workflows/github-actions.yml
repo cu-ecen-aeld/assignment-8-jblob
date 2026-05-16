@@ -37,11 +37,11 @@ jobs:
           chown -R builder:builder /build
           chown -R builder:builder /yocto-cache || true
 
-      - name: Start port forward (10022 -> 2222)
+      - name: Start dynamic port forward
         run: |
           (while true; do
-            for p in 2222 10023 10024 10025; do
-               socat TCP-LISTEN:10022,fork TCP:localhost:$p 2>/dev/null && break
+             for port in 2222 10022 10023 10024 10025; do
+               nc -z localhost $port && socat TCP-LISTEN:10022,fork TCP:localhost:$port
              done
              sleep 1
            done) &
