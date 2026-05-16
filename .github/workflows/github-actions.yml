@@ -59,8 +59,7 @@ jobs:
             echo 'DL_DIR = \"/yocto-cache/downloads\"' >> build/conf/local.conf
 
             # Shared sstate cache (MOST IMPORTANT)
-            echo 'SSTATE_DIR = \"/yocto-cache/sstate-cache\"' >> build/conf/local.conf
-            # echo 'SSTATE_MIRRORS = \"file:///yocto-cache/sstate-cache/PATH\"' >> build/conf/local.conf
+            echo 'SSTATE_DIR = "/yocto-cache/sstate-cache"' >> build/conf/local.conf
             echo 'SSTATE_MIRRORS = "file://.* file:///yocto-cache/sstate-cache/PATH"' >> build/conf/local.conf
 
             # Persistent build output
