@@ -21,7 +21,7 @@
 int aesd_major =   0; // use dynamic major
 int aesd_minor =   0;
 
-MODULE_AUTHOR("Your Name Here"); /** TODO: fill in your name **/
+MODULE_AUTHOR("Juergen Blob"); /** fill in your name **/
 MODULE_LICENSE("Dual BSD/GPL");
 
 struct aesd_dev aesd_device;
@@ -30,8 +30,10 @@ int aesd_open(struct inode *inode, struct file *filp)
 {
     PDEBUG("open");
     /**
-     * TODO: handle open
+     * handle open
      */
+    filp->private_data = &aesd_device; // Set filp->private_data with our aesd_dev device struct to get access to the device
+
     return 0;
 }
 
@@ -39,7 +41,7 @@ int aesd_release(struct inode *inode, struct file *filp)
 {
     PDEBUG("release");
     /**
-     * TODO: handle release
+     * handle release
      */
     return 0;
 }
@@ -58,13 +60,54 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
 ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
                 loff_t *f_pos)
 {
-    ssize_t retval = -ENOMEM;
+    ssize_t retval = -ENOMEM; // count ?
     PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
+
     /**
-     * TODO: handle write
+     * handle write
      */
+
+    /* Basic sanity check */
+    if (!buf || count == 0)
+        return 0;
+	 
+	char *kbuf = NULL;
+	struct aesd_dev *dev = filp->private_data;
+
+    /* Allocate kernel buffer */
+    kbuf = kmalloc(count, GFP_KERNEL);
+    if (!kbuf)
+    {
+        printk(KERN_ERR "<aesdchar>kmalloc failed\n");
+        return -ENOMEM;
+    }
+
+    /* Copy from user space */
+    if (copy_from_user(kbuf, buf, count))
+    {
+        printk(KERN_ERR "<aesdchar>copy_from_user failed\n");
+        kfree(kbuf);
+        return -EFAULT;
+    }
+
+    /*
+     * VERY SIMPLE BEHAVIOUR (for now):
+     * Just free old buffer and store new one
+     * -> prevents memory leaks
+     */
+    if (dev->buffer)
+    {
+        kfree(dev->buffer);
+    }
+
+    dev->buffer = kbuf;
+    dev->size = count;
+	
+	retval = count;
+
     return retval;
 }
+
 struct file_operations aesd_fops = {
     .owner =    THIS_MODULE,
     .read =     aesd_read,
@@ -93,10 +136,10 @@ int aesd_init_module(void)
 {
     dev_t dev = 0;
     int result;
-    result = alloc_chrdev_region(&dev, aesd_minor, 1,
-            "aesdchar");
+    result = alloc_chrdev_region(&dev, aesd_minor, 1, "aesdchar");
     aesd_major = MAJOR(dev);
-    if (result < 0) {
+    if (result < 0) 
+	{
         printk(KERN_WARNING "Can't get major %d\n", aesd_major);
         return result;
     }
@@ -108,23 +151,29 @@ int aesd_init_module(void)
 
     result = aesd_setup_cdev(&aesd_device);
 
-    if( result ) {
+    if( result ) 
+	{
         unregister_chrdev_region(dev, 1);
     }
+	
+	mutex_init(&aesd_device.lock);
+	
     return result;
 
 }
+
 
 void aesd_cleanup_module(void)
 {
     dev_t devno = MKDEV(aesd_major, aesd_minor);
 
-    cdev_del(&aesd_device.cdev);
-
     /**
-     * TODO: cleanup AESD specific poritions here as necessary
+     * cleanup AESD specific poritions here as necessary
      */
 
+	if (aesd_device.buffer)
+		kfree(aesd_device.buffer);
+    cdev_del(&aesd_device.cdev);
     unregister_chrdev_region(devno, 1);
 }
 
