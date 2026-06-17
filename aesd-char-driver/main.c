@@ -28,7 +28,7 @@ struct aesd_dev aesd_device;
 
 int aesd_open(struct inode *inode, struct file *filp)
 {
-    PDEBUG("open");
+    PDEBUG("<aesd_open>");
     /**
      * handle open
      */
@@ -39,7 +39,7 @@ int aesd_open(struct inode *inode, struct file *filp)
 
 int aesd_release(struct inode *inode, struct file *filp)
 {
-    PDEBUG("release");
+    PDEBUG("<aesd_release>");
     /**
      * handle release
      */
@@ -50,7 +50,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
                 loff_t *f_pos)
 {
     ssize_t retval = 0;
-    PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
+    PDEBUG("<aesd_read>read %zu bytes with offset %lld",count,*f_pos);
     /**
      * TODO: handle read
      */
@@ -61,7 +61,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
                 loff_t *f_pos)
 {
     ssize_t retval = -ENOMEM; // count ?
-    PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
+    PDEBUG("<aesd_write>write %zu bytes with offset %lld",count,*f_pos);
 
     /**
      * handle write
