@@ -48,41 +48,47 @@ int aesd_release(struct inode *inode, struct file *filp)
 
 ssize_t aesd_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 {
-    ssize_t retval = 0;
     struct aesd_dev *dev = filp->private_data;
-    /**
-     * handle read
-     */
-    PDEBUG("<aesd_read>read %zu bytes with offset %lld (dev->size=%zu)", count, *f_pos, dev->size);
-	mutex_lock(&dev->lock);
+    ssize_t retval = 0;
+    size_t entry_offset = 0;
+    size_t bytes_copied = 0;
 
-    if (!dev->buffer)
-        goto END;
+    struct aesd_buffer_entry *entry;
 
-    /* EOF reached, nothing more to read */
-    if (*f_pos >= dev->size)
+    mutex_lock(&dev->lock);
+
+    /* Find entry based on file position */
+    entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->buffer, *f_pos, &entry_offset);
+
+    if (!entry)
+        goto out;
+
+    while (entry && bytes_copied < count)
     {
-		retval = 0;
-        goto END;
-	}
+        size_t bytes_available = entry->size - entry_offset;
+        size_t bytes_to_copy;
 
-    /* Adjust count if too large */
-    if (count > (dev->size - *f_pos))
-        count = dev->size - *f_pos;
+        /* respect count */
+        bytes_to_copy = min(count - bytes_copied, bytes_available);
 
-    /* Copy to user */
-    if (copy_to_user(buf, dev->buffer + *f_pos, count))
-    {
-		retval = -EFAULT;
-        goto END;
-	}
+        if (copy_to_user(buf + bytes_copied, entry->buffptr + entry_offset, bytes_to_copy))
+        {
+            retval = -EFAULT;
+            goto out;
+        }
 
-    *f_pos += count;
-    retval = count;
+        bytes_copied += bytes_to_copy;
+        *f_pos += bytes_to_copy;
 
-END:	
-	mutex_unlock(&dev->lock);
+        /* move to next entry */
+        entry_offset = 0;
+        entry = aesd_circular_buffer_find_entry_offset_for_fpos(&dev->buffer, *f_pos, &entry_offset);
+    }
 
+    retval = bytes_copied;
+
+out:
+    mutex_unlock(&dev->lock);
     return retval;
 }
 
@@ -150,16 +156,24 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count, loff
     /* If newline found → finalize command */
     if (found_newline) 
     {
-        /* replace old buffer */
-        if (dev->buffer)
-            kfree(dev->buffer);
+		struct aesd_buffer_entry entry;
+		const char *old_buff;
 
-        dev->buffer = dev->buffer_partial;
-        dev->size = dev->size_partial;
+		/* prepare entry */
+		entry.buffptr = dev->buffer_partial;
+		entry.size = dev->size_partial;
 
-        /* reset partial */
-        dev->buffer_partial = NULL;
-        dev->size_partial = 0;
+		/* add to circular buffer */
+		old_buff = aesd_circular_buffer_add_entry(&dev->buffer, &entry);
+		// NOTE: aesd_circular_buffer_add_entry saves the new entry, might override the old entry, returns the old pointer
+
+		/* free overwritten entry if buffer full */
+		if (old_buff)
+			kfree(old_buff);
+
+		/* reset partial */
+		dev->buffer_partial = NULL;
+		dev->size_partial = 0;
     }
 
 END:
@@ -217,6 +231,8 @@ int aesd_init_module(void)
 	
 	mutex_init(&aesd_device.lock);
 	
+	aesd_circular_buffer_init(&aesd_device.buffer);
+	
     return result;
 
 }
@@ -229,11 +245,18 @@ void aesd_cleanup_module(void)
     /**
      * cleanup AESD specific poritions here as necessary
      */
-
-	if (aesd_device.buffer)
-		kfree(aesd_device.buffer);
 	if (aesd_device.buffer_partial)
 		kfree(aesd_device.buffer_partial);
+
+	struct aesd_buffer_entry *entry;
+	uint8_t index;
+
+	AESD_CIRCULAR_BUFFER_FOREACH(entry, &aesd_device.buffer, index) 
+	{
+		if (entry->buffptr)
+			kfree(entry->buffptr);
+	}
+
     cdev_del(&aesd_device.cdev);
     unregister_chrdev_region(devno, 1);
 }
