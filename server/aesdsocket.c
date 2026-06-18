@@ -7,6 +7,8 @@
 #include <pthread.h>
 #include <sys/queue.h>
 #include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -19,7 +21,12 @@
 #define PORT "9000"
 
 #define DEBUG_OUT
-#define FOUT "/var/tmp/aesdsocketdata"
+#define USE_AESD_CHAR_DEVICE 1
+#if USE_AESD_CHAR_DEVICE
+    #define FOUT "/dev/aesdchar"
+#else
+    #define FOUT "/var/tmp/aesdsocketdata"
+#endif
 
 volatile sig_atomic_t caught_sig  = false;
 
@@ -67,25 +74,38 @@ void *threadfunc(void *arg)
 		
 	// --- START KRITISCHER ABSCHNITT ---
 	pthread_mutex_lock(&file_mutex);
-FILE *fout = fopen(FOUT, "a");
-    if (fout != NULL) {
+	//FILE *fout = fopen(FOUT, "a");
+	int fd = open(FOUT, O_WRONLY);
+    //if (fout != NULL) 
+    if (fd >= 0)
+    {
         char buf[1024];
         ssize_t bytes_received;
-        while ((bytes_received = recv(th_arg->new_fd, buf, sizeof(buf), 0)) > 0) {
-            fwrite(buf, 1, bytes_received, fout);
-            if (memchr(buf, '\n', bytes_received) != NULL) break;
+        while ((bytes_received = recv(th_arg->new_fd, buf, sizeof(buf), 0)) > 0) 
+        {
+            //fwrite(buf, 1, bytes_received, fout);
+            write(fd, buf, bytes_received);
+            if (memchr(buf, '\n', bytes_received) != NULL) 
+				break;
         }
-        fclose(fout);
+        //fclose(fout);
+        close(fd);
     }
 
-    fout = fopen(FOUT, "r");
-    if (fout != NULL) {
+    //fout = fopen(FOUT, "r");
+    fd = open(FOUT, O_RDONLY);
+    //if (fout != NULL) 
+    if (fd >= 0)
+    {
         char send_buf[1024];
         size_t bytes_read;
-        while ((bytes_read = fread(send_buf, 1, sizeof(send_buf), fout)) > 0) {
+        // while ((bytes_read = fread(send_buf, 1, sizeof(send_buf), fout)) > 0) 
+        while ((bytes_read = read(fd, send_buf, sizeof(send_buf))) > 0)
+        {
             send(th_arg->new_fd, send_buf, bytes_read, 0);
         }
-        fclose(fout);
+        //fclose(fout);
+        close(fd);
     }
     pthread_mutex_unlock(&file_mutex);
 
@@ -186,9 +206,9 @@ int main(int argc, char *argv[])
 	SLIST_INIT(&head); // Initialize the head
 	struct thread_data *datap, *tmp_datap; // Declare iterators for SLIST_FOREACH_SAFE
 	
+#if !USE_AESD_CHAR_DEVICE
 	pthread_t thread_id_timer;
 	int err_timer;
-
 	FILE *f = fopen(FOUT, "w"); 
 	if (f != NULL) 
 	{
@@ -198,6 +218,7 @@ int main(int argc, char *argv[])
 	{
 		syslog(LOG_ERR, "<AESDSOCKET> Could not initialize file %s", FOUT);
 	}
+#endif
 
 	// 1. Get address information
 	status = getaddrinfo(NULL, PORT, &hints, &servinfo);
@@ -207,8 +228,7 @@ int main(int argc, char *argv[])
 		syslog(LOG_ERR, "<AESDSOCKET>error in getaddrinfo %s", gai_strerror(status));
 		return -1;
 	}
-	// servinfo now points to a linked list of 1 or more
-	// struct addrinfos
+	// servinfo now points to a linked list of 1 or more "struct addrinfos"
 
 	// 2. Create the socket
 	sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
@@ -279,7 +299,9 @@ int main(int argc, char *argv[])
 	syslog(LOG_INFO, "<AESDSOCKET>Server: waiting for connections on port %s", PORT);
 #endif
 
+#if !USE_AESD_CHAR_DEVICE
 	bool bTimerStarted = false;
+#endif
 	
 	while(!caught_sig)
 	{
@@ -318,6 +340,7 @@ int main(int argc, char *argv[])
 		// add the thread to the linked list:
 		SLIST_INSERT_HEAD(&head, th_data, entries);
 		
+#if !USE_AESD_CHAR_DEVICE
 		if (bTimerStarted == false)
 		{
 			err_timer = pthread_create(&thread_id_timer, NULL, timer_thread, NULL);
@@ -328,7 +351,7 @@ int main(int argc, char *argv[])
 			}
 			bTimerStarted = true;
 		}
-		
+#endif		
 		datap = SLIST_FIRST(&head);
 		while (datap != NULL) 
 		{
@@ -367,19 +390,23 @@ int main(int argc, char *argv[])
 		datap = tmp_datap;
 	}
 
+#if !USE_AESD_CHAR_DEVICE
 	if (bTimerStarted)
 	{
 		pthread_join(thread_id_timer, NULL);
 	}
+#endif
 	
 	close(sockfd);
 	closelog();
 	
+#if !USE_AESD_CHAR_DEVICE
 	status = remove(FOUT);
 	if( status != 0 )
 	{
 		syslog(LOG_ERR, "<AESDSOCKET>error deleting file %s\n", FOUT);
 	}
+#endif
 
 	return 0;
 }
