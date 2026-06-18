@@ -49,11 +49,11 @@ int aesd_release(struct inode *inode, struct file *filp)
 ssize_t aesd_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 {
     ssize_t retval = 0;
-    PDEBUG("<aesd_read>read %zu bytes with offset %lld",count,*f_pos);
     struct aesd_dev *dev = filp->private_data;
     /**
      * handle read
      */
+    PDEBUG("<aesd_read>read %zu bytes with offset %lld (dev->size=%zu)", count, *f_pos, dev->size);
 	mutex_lock(&dev->lock);
 
     if (!dev->buffer)
