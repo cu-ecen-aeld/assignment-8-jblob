@@ -8,7 +8,6 @@
 #include <sys/queue.h>
 #include <time.h>
 #include <fcntl.h>
-#include <unistd.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -74,37 +73,43 @@ void *threadfunc(void *arg)
 		
 	// --- START KRITISCHER ABSCHNITT ---
 	pthread_mutex_lock(&file_mutex);
-	//FILE *fout = fopen(FOUT, "a");
 	int fd = open(FOUT, O_WRONLY);
-    //if (fout != NULL) 
     if (fd >= 0)
     {
         char buf[1024];
         ssize_t bytes_received;
         while ((bytes_received = recv(th_arg->new_fd, buf, sizeof(buf), 0)) > 0) 
         {
-            //fwrite(buf, 1, bytes_received, fout);
-            write(fd, buf, bytes_received);
+			ssize_t total_written = 0;
+			while (total_written < bytes_received)
+			{
+				ssize_t written = write(fd, buf + total_written, bytes_received - total_written);
+				if (written < 0)
+					break;
+				total_written += written;
+			}            
             if (memchr(buf, '\n', bytes_received) != NULL) 
 				break;
         }
-        //fclose(fout);
         close(fd);
     }
 
-    //fout = fopen(FOUT, "r");
     fd = open(FOUT, O_RDONLY);
-    //if (fout != NULL) 
     if (fd >= 0)
     {
         char send_buf[1024];
-        size_t bytes_read;
-        // while ((bytes_read = fread(send_buf, 1, sizeof(send_buf), fout)) > 0) 
+        ssize_t bytes_read;
         while ((bytes_read = read(fd, send_buf, sizeof(send_buf))) > 0)
         {
-            send(th_arg->new_fd, send_buf, bytes_read, 0);
+            ssize_t total_sent = 0;
+			while (total_sent < bytes_read)
+			{
+				ssize_t sent = send(th_arg->new_fd,	send_buf + total_sent, bytes_read - total_sent, 0);
+				if (sent < 0)
+					break;
+				total_sent += sent;
+			}
         }
-        //fclose(fout);
         close(fd);
     }
     pthread_mutex_unlock(&file_mutex);
