@@ -205,7 +205,7 @@ int aesd_init_module(void)
     memset(&aesd_device,0,sizeof(struct aesd_dev));
 
     /**
-     * TODO: initialize the AESD specific portion of the device
+     * initialize the AESD specific portion of the device
      */
 
     result = aesd_setup_cdev(&aesd_device);
@@ -232,6 +232,8 @@ void aesd_cleanup_module(void)
 
 	if (aesd_device.buffer)
 		kfree(aesd_device.buffer);
+	if (aesd_device.buffer_partial)
+		kfree(aesd_device.buffer_partial);
     cdev_del(&aesd_device.cdev);
     unregister_chrdev_region(devno, 1);
 }
